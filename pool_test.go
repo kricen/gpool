@@ -16,7 +16,7 @@ func TestPool(t *testing.T) {
 	}
 
 	// acquire a pool
-	gp, err := New(100, f)
+	gp, err := New(100, 1000, f)
 	if err != nil {
 		t.Log(err.Error())
 		return

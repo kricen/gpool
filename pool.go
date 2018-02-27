@@ -9,35 +9,37 @@ import (
 
 // Author : kricen : github.com/kricen/gpool
 
-// GPool : A GROUTINE POOL BASE ON TOKEN BUCKET ALGORITHM
-
-// maxSize : max groutien size (default 10000)
-// poolChan : in order to acquire token
-// jobFunc : defined by user to complete the requirement themselves!
-
 var (
 	wg         = sync.RWMutex{}
 	ErrMaxSize = errors.New("init failed,maxsize is not correct")
 	ErrJobQuit = errors.New("exec failed,pool had been realsed")
 )
 
+// GPool : A GROUTINE POOL BASE ON TOKEN BUCKET ALGORITHM
 type GPool struct {
-	maxSize       int64
-	poolChan      chan int
-	occupiedCount int64
-	jobFunc       func(interface{}) interface{}
-	quit          bool
-	initCount     int64
+	maxSize       int64                         // max goroutine size in channel
+	poolChan      chan int                      // a pool to store token
+	occupiedCount int64                         // goroutine size in pool
+	jobFunc       func(interface{}) interface{} // user's handle function
+	quit          bool                          // quit single
+	produceSpeed  time.Duration                 // produce the speed of token
 }
 
 // New : define a function to init the GPool pool
-func New(maxSize int64, jobFunc func(interface{}) interface{}) (*GPool, error) {
+// qps : query peer speed
+func New(maxSize int64, qps int64, jobFunc func(interface{}) interface{}) (*GPool, error) {
 	if maxSize <= 0 {
 		return nil, ErrMaxSize
 	}
+	// calculate the produceSpeed
+	speed := int(float64(1) / float64(qps) * 1 * 1000 * 1000)
+	if speed <= 0 {
+		speed = 10000
+	}
 	// init the channel
 	poolChan := make(chan int, maxSize)
-	pool := &GPool{maxSize: maxSize, poolChan: poolChan, jobFunc: jobFunc}
+
+	pool := &GPool{maxSize: maxSize, poolChan: poolChan, jobFunc: jobFunc, produceSpeed: time.Duration(speed) * time.Microsecond}
 	// start the pool
 	pool.start()
 
@@ -75,11 +77,12 @@ func (g *GPool) PushJob(param interface{}) (interface{}, error) {
 }
 
 func (g *GPool) start() {
+	ticker := time.NewTicker(g.produceSpeed)
 	go func() {
-		for {
+		defer ticker.Stop()
+		for _ = range ticker.C {
 			if !g.quit {
 				g.produceToken()
-				time.Sleep(1 * time.Millisecond)
 				continue
 			}
 			return
@@ -91,9 +94,16 @@ func (g *GPool) start() {
 
 // produceToken
 func (g *GPool) produceToken() {
+
+	// produce may write to a closed channel, so
+	// need to recover when panic
+	defer func() {
+		if r := recover(); r != nil {
+		}
+	}()
+
 	ot := g.AccessOccupidCount()
 	if ot < g.maxSize {
-		g.initCount++
 		g.updateOccupidCount(1)
 		g.poolChan <- 1
 	}
