@@ -10,9 +10,10 @@ import (
 // Author : kricen : github.com/kricen/gpool
 
 var (
-	wg         = sync.RWMutex{}
-	ErrMaxSize = errors.New("init failed,maxsize is not correct")
-	ErrJobQuit = errors.New("exec failed,pool had been realsed")
+	wg            = sync.RWMutex{}
+	ErrMaxSize    = errors.New("init failed,maxsize is not correct")
+	ErrJobQuit    = errors.New("exec failed,pool had been realsed")
+	ErrJobTimeout = errors.New("timeout")
 )
 
 // GPool : A GROUTINE POOL BASE ON TOKEN BUCKET ALGORITHM
@@ -71,6 +72,26 @@ func (g *GPool) PushJob(param interface{}) (interface{}, error) {
 	select {
 	case <-g.poolChan:
 		g.updateOccupidCount(-1)
+	}
+
+	return g.jobFunc(param), nil
+}
+
+// PushJobWithTimeout : push a job to pool with a timeout mechanism
+func (g *GPool) PushJobWithTimeout(param interface{}, timeout time.Duration) (interface{}, error) {
+
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+
+	if g.quit {
+		return nil, ErrJobQuit
+	}
+	// consume token
+	select {
+	case <-g.poolChan:
+		g.updateOccupidCount(-1)
+	case <-timer.C:
+		return nil, ErrJobTimeout
 	}
 
 	return g.jobFunc(param), nil

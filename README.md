@@ -35,13 +35,12 @@ for i := 0; i < 1000; i++ {
 		defer wg.Done()
 		// push the job to pool
 		gp.PushJob(index)
-
+		//gp.PushJobWithTimeout(index, time.Second)s
 	}(i)
 }
 
 wg.Wait()
 // realse pool when not to use it
 gp.Close()
-
 
 ```

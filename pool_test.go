@@ -29,7 +29,7 @@ func TestPool(t *testing.T) {
 			defer wg.Done()
 			// push the job to pool
 			gp.PushJob(index)
-
+			//gp.PushJobWithTimeout(index, time.Second)
 		}(i)
 	}
 
