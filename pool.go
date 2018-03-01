@@ -16,6 +16,10 @@ var (
 	ErrJobTimeout = errors.New("timeout")
 )
 
+const (
+	DefaultQps = 800
+)
+
 // GPool : A GROUTINE POOL BASE ON TOKEN BUCKET ALGORITHM
 type GPool struct {
 	maxSize       int64                         // max goroutine size in channel
@@ -27,20 +31,22 @@ type GPool struct {
 }
 
 // New : define a function to init the GPool pool
+func New(maxSize int64, jobFunc func(interface{}) interface{}) (*GPool, error) {
+	return NewWithQps(maxSize, DefaultQps, jobFunc)
+}
+
+// New : define a function to init the GPool pool with param qps
 // qps : query peer speed
-func New(maxSize int64, qps int64, jobFunc func(interface{}) interface{}) (*GPool, error) {
+func NewWithQps(maxSize int64, qps int64, jobFunc func(interface{}) interface{}) (*GPool, error) {
 	if maxSize <= 0 {
 		return nil, ErrMaxSize
-	}
-	// calculate the produceSpeed
-	speed := int(float64(1) / float64(qps) * 1 * 1000 * 1000)
-	if speed <= 0 {
-		speed = 10000
 	}
 	// init the channel
 	poolChan := make(chan int, maxSize)
 
-	pool := &GPool{maxSize: maxSize, poolChan: poolChan, jobFunc: jobFunc, produceSpeed: time.Duration(speed) * time.Microsecond}
+	pool := &GPool{maxSize: maxSize, poolChan: poolChan, jobFunc: jobFunc}
+	// set qps
+	pool.SetQps(qps)
 	// start the pool
 	pool.start()
 
@@ -95,6 +101,16 @@ func (g *GPool) PushJobWithTimeout(param interface{}, timeout time.Duration) (in
 	}
 
 	return g.jobFunc(param), nil
+}
+
+// SetQps : set qps optional
+func (g *GPool) SetQps(qps int64) {
+	// calculate the produceSpeed
+	speed := int(float64(1) / float64(qps) * 1 * 1000 * 1000)
+	if speed <= 0 {
+		speed = DefaultQps
+	}
+	g.produceSpeed = time.Duration(speed) * time.Microsecond
 }
 
 func (g *GPool) start() {

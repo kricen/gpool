@@ -16,11 +16,14 @@ func TestPool(t *testing.T) {
 	}
 
 	// acquire a pool
-	gp, err := New(100, 1000, f)
+	gp, err := New(100, f)
+	//gp, err := NewWithQps(100,1000,f)
 	if err != nil {
 		t.Log(err.Error())
 		return
 	}
+	// you can set qps with this function or when gp init
+	gp.SetQps(1000)
 
 	var wg sync.WaitGroup
 	for i := 0; i < 1000; i++ {
