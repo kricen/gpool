@@ -1,4 +1,4 @@
-package pool
+package gpool
 
 import (
 	"fmt"
@@ -37,4 +37,14 @@ func TestPool(t *testing.T) {
 	// realse pool when not to use it
 	gp.Close()
 
+}
+
+func TestHello(t *testing.T) {
+	fmt.Printf("%20s%20s\n", "ddddddd", "ddddddsssd")
+	fmt.Printf("%20s%20s\n", "dddddddsssssss", "ddddddsssd")
+	for i := 0; i < 1000; i++ {
+		fmt.Printf("\r%d==================================================%d", i-1, i)
+		time.Sleep(1 * time.Second)
+
+	}
 }
